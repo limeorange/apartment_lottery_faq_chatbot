@@ -152,13 +152,20 @@ def main():
         pdf_doc = st.file_uploader('PDF Uploader', type='pdf')
         button = st.button('PDF 업로드하기')
         if pdf_doc and button:
-            with st.spinner('PDF를 벡터DB에 저장하는 중...'):
+            
+            # (1단계) PDF 문서를 벡터DB에 저장
+            with st.spinner('PDF 문서 저장 중...'):
                 st.text('여기까지 구현됨')
                 pdf_path = save_uploadedfile(pdf_doc) # PDF 파일을 임시폴더에 저장
                 pdf_document = pdf_to_documents(pdf_path) # PDF 파일을 Document 형태로 변환
                 smaller_documents = chunk_documents(pdf_document) # Document를 더 작은 document로 변환
                 save_to_vector_store(smaller_documents) # Document를 벡터DB에 저장
-        
+
+            # (3단계) PDF를 이미지로 변환해서 세션 상태로 임시 저장
+            with st.spinner('PDF 문서를 이미지로 변환 중...'):
+                images = convert_pdf_to_images(pdf_path)
+                st.session_state.images = images
+                
         user_question = st.text_input("PDF 문서에 대해 질문을 입력하세요",
                                         placeholder="예시) 무순위 청약 시에도 부부 중복신청이 가능한가요?")
         
@@ -176,8 +183,17 @@ def main():
                         st.session_state.page_number = str(page_number)
         
         with right_column:
+            # page_number 호출
             page_number = st.session_state.get('page_number')
-            st.text(page_number)            
-
+            if page_number:
+                page_number = int(page_number)
+                image_folder = "PDF_이미지"
+                images = sorted(os.listdir(image_folder), key=natural_sort_key)
+                print(images)
+                images_paths = [os.path.join(image_folder, img) for img in images]
+                print(page_number)
+                print(images_paths[page_number-1])
+                display_pdf_page(images_paths[page_number-1], page_number)
+                
 if __name__ == "__main__":
     main()
