@@ -1,9 +1,6 @@
-
-
 ## streamlit 관련 모듈 불러오기
 import streamlit as st
 from streamlit.runtime.uploaded_file_manager import UploadedFile
-
 
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_core.documents.base import Document
@@ -27,6 +24,7 @@ load_dotenv()
 ############################### 1단계 : PDF 문서를 벡터DB에 저장하는 함수들 ##########################
 
 ## 1: 임시폴더에 파일 저장
+# pdf를 chunking, parsing 등 작업하기 위해서는 이 프로그램이 실행되는 컴퓨터에 파일을 저장해야 작업 가능.
 def save_uploadedfile(uploadedfile: UploadedFile) -> str : 
     temp_dir = "PDF_임시폴더"
     if not os.path.exists(temp_dir):
@@ -37,6 +35,8 @@ def save_uploadedfile(uploadedfile: UploadedFile) -> str :
     return file_path
 
 ## 2: 저장된 PDF 파일을 Document로 변환
+# pdf 파일을 읽고 Document 형태로 변환하는 과정.
+# Document는 langchain에서 텍스트와 메타데이터를 함께 저장하는 객체. (page_content, metadata)
 def pdf_to_documents(pdf_path:str) -> List[Document]:
     documents = []
     loader = PyMuPDFLoader(pdf_path)
@@ -52,6 +52,9 @@ def chunk_documents(documents: List[Document]) -> List[Document]:
     return text_splitter.split_documents(documents)
 
 ## 4: Document를 벡터DB로 저장
+# 문서 덩어리가 벡터로 전환되는 임베딩 과정을 OpenAI 모델로 수행
+# FAISS는 벡터를 저장하고 검색하는 라이브러리. 여기서는 FAISS를 사용해서 벡터DB를 구축하고, 로컬에 저장.
+# faiss_index 폴더가 생성되고, 그 안에 벡터DB가 저장됨. 이후 RAG 처리할 때 이 벡터DB를 불러와서 관련 문서를 검색하는 데 사용.
 def save_to_vector_store(documents: List[Document]) -> None:
     embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
     vector_store = FAISS.from_documents(documents, embedding=embeddings)
@@ -139,9 +142,18 @@ def natural_sort_key(s):
     return [int(text) if text.isdigit() else text for text in re.split(r'(\d+)', s)]
 
 def main():
-    st.text(dotenv_values(".env"))
-    st.text("셋팅완료")
-
-
+    # st.text(dotenv_values(".env"))
+    # st.text("셋팅완료")
+    
+    pdf_doc = st.file_uploader('PDF Uploader', type='pdf')
+    button = st.button('PDF 업로드하기')
+    if pdf_doc and button:
+        with st.spinner('PDF를 벡터DB에 저장하는 중...'):
+            st.text('여기까지 구현됨')
+            pdf_path = save_uploadedfile(pdf_doc) # PDF 파일을 임시폴더에 저장
+            pdf_document = pdf_to_documents(pdf_path) # PDF 파일을 Document 형태로 변환
+            smaller_documents = chunk_documents(pdf_document) # Document를 더 작은 document로 변환
+            save_to_vector_store(smaller_documents) # Document를 벡터DB에 저장
+        
 if __name__ == "__main__":
     main()
