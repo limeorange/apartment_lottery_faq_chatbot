@@ -7,11 +7,11 @@ from streamlit.runtime.uploaded_file_manager import UploadedFile
 
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_core.documents.base import Document
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import FAISS
-from langchain.prompts import PromptTemplate
+from langchain_core.prompts import PromptTemplate
 from langchain_core.runnables import Runnable
-from langchain.schema.output_parser import StrOutputParser
+from langchain_core.output_parsers import StrOutputParser
 from langchain_community.document_loaders import PyMuPDFLoader
 from typing import List
 import os
