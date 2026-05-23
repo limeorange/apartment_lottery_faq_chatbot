@@ -64,7 +64,6 @@ def save_to_vector_store(documents: List[Document]) -> None:
 
 ############################### 2단계 : RAG 기능 구현과 관련된 함수들 ##########################
 
-
 ## 사용자 질문에 대한 RAG 처리
 @st.cache_data
 def process_question(user_question):
@@ -78,6 +77,7 @@ def process_question(user_question):
     ## 관련 문서 3개를 호출하는 Retriever 생성
     retriever = new_db.as_retriever(search_kwargs={"k": 3})
     ## 사용자 질문을 기반으로 관련문서 3개 검색 
+    ## invoke는 retriever라는 함수에서 input으로 user_question을 넣어서 검색을 수행하는 메서드.
     retrieve_docs : List[Document] = retriever.invoke(user_question)
 
     ## RAG 체인 선언
@@ -88,7 +88,8 @@ def process_question(user_question):
     return response, retrieve_docs
 
 
-
+## get_rag_chain 함수는 질문, 질문 관련 문서(context)를 입력으로 받아서 프롬프트가 더 풍부해지고,
+## 모델이 그 프롬프트를 기반으로 응답을 생성하는 RAG 체인을 반환하는 함수
 def get_rag_chain() -> Runnable:
     template = """
     다음의 컨텍스트를 활용해서 질문에 답변해줘
@@ -110,6 +111,7 @@ def get_rag_chain() -> Runnable:
 
 
 ############################### 3단계 : 응답결과와 문서를 함께 보도록 도와주는 함수 ##########################
+
 @st.cache_data(show_spinner=False)
 def convert_pdf_to_images(pdf_path: str, dpi: int = 250) -> List[str]:
     doc = fitz.open(pdf_path)  # 문서 열기
@@ -142,18 +144,40 @@ def natural_sort_key(s):
     return [int(text) if text.isdigit() else text for text in re.split(r'(\d+)', s)]
 
 def main():
-    # st.text(dotenv_values(".env"))
-    # st.text("셋팅완료")
+    st.set_page_config(page_title="청약 FAQ 챗봇", layout="wide")
+    left_column, right_column = st.columns([1, 1])
     
-    pdf_doc = st.file_uploader('PDF Uploader', type='pdf')
-    button = st.button('PDF 업로드하기')
-    if pdf_doc and button:
-        with st.spinner('PDF를 벡터DB에 저장하는 중...'):
-            st.text('여기까지 구현됨')
-            pdf_path = save_uploadedfile(pdf_doc) # PDF 파일을 임시폴더에 저장
-            pdf_document = pdf_to_documents(pdf_path) # PDF 파일을 Document 형태로 변환
-            smaller_documents = chunk_documents(pdf_document) # Document를 더 작은 document로 변환
-            save_to_vector_store(smaller_documents) # Document를 벡터DB에 저장
+    with left_column:   
+        st.header('청약 FAQ 챗봇')
+        pdf_doc = st.file_uploader('PDF Uploader', type='pdf')
+        button = st.button('PDF 업로드하기')
+        if pdf_doc and button:
+            with st.spinner('PDF를 벡터DB에 저장하는 중...'):
+                st.text('여기까지 구현됨')
+                pdf_path = save_uploadedfile(pdf_doc) # PDF 파일을 임시폴더에 저장
+                pdf_document = pdf_to_documents(pdf_path) # PDF 파일을 Document 형태로 변환
+                smaller_documents = chunk_documents(pdf_document) # Document를 더 작은 document로 변환
+                save_to_vector_store(smaller_documents) # Document를 벡터DB에 저장
         
+        user_question = st.text_input("PDF 문서에 대해 질문을 입력하세요",
+                                        placeholder="예시) 무순위 청약 시에도 부부 중복신청이 가능한가요?")
+        
+        if user_question:
+            response, context = process_question(user_question)
+            st.text(response)
+            for document in context:
+                with st.expander('관련 문서'):
+                    st.text(document.page_content)
+                    file_path = document.metadata.get('source', '')
+                    page_number = document.metadata.get('page', 0)+1
+                    button_key = f'link_{file_path}_{page_number}'
+                    reference_button = st.button(f'{os.path.basename(file_path)} pg.{page_number}', key=button_key)
+                    if reference_button:
+                        st.session_state.page_number = str(page_number)
+        
+        with right_column:
+            page_number = st.session_state.get('page_number')
+            st.text(page_number)            
+
 if __name__ == "__main__":
     main()
